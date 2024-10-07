@@ -2,26 +2,44 @@
   <div>
     <div class="mb-4">
       <Link class="group flex items-center py-3" href="/">
-        <icon name="dashboard" class="mr-2 w-4 h-4" :class="isUrl('') ? 'fill-white' : 'fill-indigo-400 group-hover:fill-white'" />
-        <div :class="isUrl('') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">Dashboard</div>
+      <icon name="dashboard" class="mr-2 w-4 h-4"
+        :class="isUrl('') ? 'fill-white' : 'fill-indigo-400 group-hover:fill-white'" />
+      <div :class="isUrl('') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">Dashboard</div>
       </Link>
     </div>
-    <div class="mb-4">
+    <div v-if="auth.user.owner" class="mb-4">
       <Link class="group flex items-center py-3" href="/organizations">
-        <icon name="office" class="mr-2 w-4 h-4" :class="isUrl('organizations') ? 'fill-white' : 'fill-indigo-400 group-hover:fill-white'" />
-        <div :class="isUrl('organizations') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">Organizations</div>
+      <icon name="office" class="mr-2 w-4 h-4"
+        :class="isUrl('organizations') ? 'fill-white' : 'fill-indigo-400 group-hover:fill-white'" />
+      <div :class="isUrl('organizations') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">Organizations</div>
+      </Link>
+    </div>
+    <div v-if="auth.user.owner" class="mb-4">
+      <Link class="group flex items-center py-3" href="/endpoints">
+      <icon name="endpoints" class="mr-2 w-4 h-4"
+        :class="isUrl('endpoints') ? 'fill-white' : 'fill-indigo-400 group-hover:fill-white'" />
+      <div :class="isUrl('endpoints') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">Endpoints</div>
       </Link>
     </div>
     <div class="mb-4">
-      <Link class="group flex items-center py-3" href="/contacts">
-        <icon name="users" class="mr-2 w-4 h-4" :class="isUrl('contacts') ? 'fill-white' : 'fill-indigo-400 group-hover:fill-white'" />
-        <div :class="isUrl('contacts') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">Contacts</div>
+      <Link class="group flex items-center py-3" href="/streams">
+      <icon name="streams" class="mr-2 w-4 h-4"
+        :class="isUrl('streams') ? 'fill-white' : 'fill-indigo-400 group-hover:fill-white'" />
+      <div :class="isUrl('streams') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">Streams</div>
       </Link>
     </div>
-    <div class="mb-4">
-      <Link class="group flex items-center py-3" href="/reports">
-        <icon name="printer" class="mr-2 w-4 h-4" :class="isUrl('reports') ? 'fill-white' : 'fill-indigo-400 group-hover:fill-white'" />
-        <div :class="isUrl('reports') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">Reports</div>
+    <div v-if="auth.user.owner" class="mb-4">
+      <Link class="group flex items-center py-3" href="/roles">
+      <icon name="roles" class="mr-2 w-4 h-4"
+        :class="isUrl('roles') ? 'fill-white' : 'fill-indigo-400 group-hover:fill-white'" />
+      <div :class="isUrl('roles') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">Roles</div>
+      </Link>
+    </div>
+    <div v-if="auth.user.owner" class="mb-4">
+      <Link class="group flex items-center py-3" href="/permissions">
+      <icon name="permissions" class="mr-2 w-4 h-4"
+        :class="isUrl('permissions') ? 'fill-white' : 'fill-indigo-400 group-hover:fill-white'" />
+      <div :class="isUrl('permissions') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">Permissions</div>
       </Link>
     </div>
   </div>
@@ -35,6 +53,9 @@ export default {
   components: {
     Icon,
     Link,
+  },
+  props: {
+    auth: Object,
   },
   methods: {
     isUrl(...urls) {

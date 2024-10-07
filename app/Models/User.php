@@ -104,4 +104,24 @@ class User extends Authenticatable
             }
         });
     }
+
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+    public function permissions()
+    {
+        return $this->role->permissions;
+    }
+
+    public function hasPermission($permission)
+    {
+        return $this->role->permissions->contains('key', $permission);
+    }
+
+    public function hasRole($role)
+    {
+        return $this->role->name === $role;
+    }
 }
