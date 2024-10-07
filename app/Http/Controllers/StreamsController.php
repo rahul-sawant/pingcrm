@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{Streams,Endpoints};
+use App\Models\{Streams, Endpoints};
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -17,7 +18,7 @@ class StreamsController extends Controller
     {
         return Inertia::render('Streams/Index', [
             'filters' => Request::all('search'),
-            'streams' => Streams::with('endpoint','endpoint.accounts')->orderBy('id')->filter(Request::only('search'))->paginate(10)->withQueryString()->through(
+            'streams' => Streams::with('endpoint', 'endpoint.accounts')->orderBy('id')->filter(Request::only('search'))->paginate(10)->withQueryString()->through(
                 fn($streams) => [
                     'id' => $streams->id,
                     'uuid' => $streams->uuid,
@@ -33,9 +34,7 @@ class StreamsController extends Controller
 
     public function create(): Response
     {
-        return Inertia::render('Streams/Create',
-            ['endpoints' => Endpoints::orderBy('title')->get()->map->only('id', 'title')]
-        );
+        return Inertia::render('Streams/Create', ['endpoints' => Endpoints::orderBy('title')->get()->map->only('id', 'title')]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -47,7 +46,7 @@ class StreamsController extends Controller
             'endpoint' => ['required', 'exists:endpoints,id'],
         ]);
 
-        $stream['slug'] ?? ($stream['slug'] = Str::slug($stream['title'].'-'.Str::random(8)));
+        $stream['slug'] ?? ($stream['slug'] = Str::slug($stream['title'] . '-' . Str::random(8)));
         $stream['endpoint_id'] = $stream['endpoint'];
         unset($stream['endpoint']);
 
@@ -56,38 +55,38 @@ class StreamsController extends Controller
         return Redirect::route('streams')->with('success', 'Stream created.');
     }
 
-    public function edit(Endpoints $endpoint): Response
+    public function edit(Streams $stream): Response
     {
-        return Inertia::render('Endpoints/Edit', [
-            'endpoint' => [
-                'id' => $endpoint->id,
-                'uuid' => $endpoint->uuid,
-                'title' => $endpoint->title,
-                'location' => $endpoint->location,
-                'stream_key' => $endpoint->stream_key,
-                'ip_addr' => $endpoint->ip_addr,
-                'port' => $endpoint->port,
-                'type' => $endpoint->type,
-                'streams' => $endpoint->streams()->orderBy('created_at')->get()->map->only('id', 'title', 'description', 'created_at'),
+        return Inertia::render('Streams/Edit', [
+            'stream' => [
+                'id' => $stream->id,
+                'uuid' => $stream->uuid,
+                'title' => $stream->title,
+                'slug' => $stream->slug,
+                'description' => $stream->description,
+                'endpoint' => $stream->endpoint,
             ],
+            'endpoints' => Endpoints::orderBy('title')->get()->map->only('id', 'title'),
         ]);
     }
 
-    public function update(Endpoints $endpoint): RedirectResponse
+    public function update(Streams $stream): RedirectResponse
     {
-        $endpoint->update(
-            Request::validate([
-                'uuid' => ['required', 'max:100', 'unique:endpoints,uuid,' . $endpoint->id],
-                'title' => ['required', 'max:100', 'unique:endpoints,title,' . $endpoint->id],
-                'location' => ['required', 'max:100'],
-                'stream_key' => ['required', 'max:100', 'unique:endpoints,stream_key,' . $endpoint->id],
-                'ip_addr' => ['required', 'max:100'],
-                'port' => ['required', 'max:100'],
-                'type' => ['required', 'max:100'],
-            ]),
-        );
+        $updatedStream = Request::validate([
+            'uuid' => ['required', 'max:100', 'unique:streams,uuid,' . $stream->id],
+            'title' => ['required', 'max:100', 'unique:streams,title,' . $stream->id],
+            'slug' => ['required', 'max:100', 'unique:streams,slug,' . $stream->id],
+            'description' => ['required', 'max:100'],
+            'endpoint' => ['required', 'exists:endpoints,id'],
+        ]);
 
-        return Redirect::back()->with('success', 'Endpoint updated.');
+        $updatedStream['slug'] ?? ($updatedStream['slug'] = Str::slug($updatedStream['title'] . '-' . Str::random(8)));
+        $updatedStream['endpoint_id'] = $updatedStream['endpoint'];
+        unset($updatedStream['endpoint']);
+
+        $stream->update($updatedStream);
+
+        return Redirect::back()->with('success', 'Stream updated.');
     }
 
     public function destroy(Endpoints $endpoint): RedirectResponse
@@ -95,5 +94,61 @@ class StreamsController extends Controller
         $endpoint->delete();
 
         return Redirect::route('endpoints')->with('success', 'Endpoint deleted.');
+    }
+
+    public function getRemoteSdp(): string
+    {
+        $validatedRequest = Request::validate([
+            'stream_uuid' => ['required', 'max:100', 'exists:streams,uuid'],
+            'data' => ['required'],
+        ]);
+        $stream = Streams::where('uuid', $validatedRequest['stream_uuid'])->with('endpoint')->first();
+
+        $httpCall = Http::withHeaders([
+            'Authorization' => $stream->endpoint->stream_key,
+        ])->asForm()->post($stream->endpoint->ip_addr . ':' . $stream->endpoint->port . '/stream/receiver/'.$stream->uuid,[
+            'suuid' => $stream->uuid,
+            'data' => $validatedRequest['data'],
+        ]);
+
+        if($httpCall->failed()){
+            return response()->json(['error' => 'Failed to get remote sdp'], 500);
+        }
+
+        return $httpCall->body();
+    }
+
+    public function saveIceCandidates(): string
+    {
+        $validatedRequest = Request::validate([
+            'stream_uuid' => ['required', 'max:100', 'exists:streams,uuid'],
+            'session_id' => ['required'],
+            'candidates' => ['required'],
+        ]);
+        $stream = Streams::where('uuid', $validatedRequest['stream_uuid'])->with('endpoint')->first();
+
+        $httpCall = Http::withHeaders([
+            'Authorization' => $stream->endpoint->stream_key,
+        ])->asForm()->post($stream->endpoint->ip_addr . ':' . $stream->endpoint->port . '/stream/ice/send',[
+            'session_id' => $validatedRequest['session_id'],
+            'ice_candidate' => $validatedRequest['candidates'],
+        ]);
+
+        if($httpCall->failed()){
+            return response()->json(['error' => 'Failed to save ice candidates'], 500);
+        }
+
+        //Get ICE candidates from the stream
+        $httpCall = Http::withHeaders([
+            'Authorization' => $stream->endpoint->stream_key,
+        ])->asForm()->get($stream->endpoint->ip_addr . ':' . $stream->endpoint->port . '/stream/ice/get',[
+            'session_id' => $validatedRequest['session_id'],
+        ]);
+
+        if($httpCall->failed()){
+            return response()->json(['error' => 'Failed to get ice candidates'], 500);
+        }
+
+        return $httpCall->body();
     }
 }

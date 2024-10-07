@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{Endpoints, Account};
+use App\Models\{Endpoints, Account, Streams};
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -104,6 +105,8 @@ class EndpointsController extends Controller
     public function destroy(Endpoints $endpoint): RedirectResponse
     {
         $endpoint->delete();
+        //Delete streams from the endpoint
+        Streams::where('endpoint_id', $endpoint->id)->delete();
 
         return Redirect::route('endpoints')->with('success', 'Endpoint deleted.');
     }
